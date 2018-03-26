@@ -1,4 +1,5 @@
 import os
+import copy
 import pygame
 import colors
 import solitaire_logic
@@ -7,6 +8,9 @@ import random
 
 LEFT_MOUSE_BUTTON = 1
 RIGHT_MOUSE_BUTTON = 3
+CARD_TO_WIDTH = 7
+CARD_TO_HEIGHT = 7
+CARD_WIDTH_TO_CARD_HEIGHT = 1.5 
 
 
 class SolitaireGame:
@@ -25,7 +29,8 @@ class SolitaireGame:
         pygame.init()
 
         self.main_font = pygame.font.SysFont('arial', 16)
-        self._images = self._load_images()
+        self._original_card_images = self._load_images()
+        self._card_images = self._original_card_images.copy()
 
         pygame.display.set_caption('Solitaire2')
         self._resize_surface((self.init_width, self.init_height))
@@ -36,13 +41,22 @@ class SolitaireGame:
         dictionary where the file name is the key and the image is
         the value
         '''
-        images_dict = {}
+        card_images_dict = {}
         for pile in self._game_state.piles:
             for card in pile:
                 path = os.path.join('resources', 'cards', card.image_filename)
-                images_dict[card.image_filename] = pygame.image.load(path)
-        images_dict['card_back.jpg'] = pygame.image.load(os.path.join('resources', 'card_back.jpg'))
-        return images_dict
+                card_images_dict[card.image_filename] = pygame.image.load(path)
+        card_images_dict['card_back.jpg'] = pygame.image.load(os.path.join('resources', 'card_back.jpg'))
+        return card_images_dict
+
+    def _resize_images(self) -> None:
+        '''
+        Resize the card widths and heights to fit the windows size
+        '''
+        self._card_images = self._original_card_images.copy()
+        correct_card_size = self._find_correct_card_size()
+        for image_filename, card_image in self._card_images.items():
+            self._card_images[image_filename] = pygame.transform.scale(card_image, correct_card_size)
 
     def _resize_surface(self, size: (int, int)) -> None:
         '''
@@ -50,12 +64,32 @@ class SolitaireGame:
         the flag of RESIZABLE
         '''
         pygame.display.set_mode(size, pygame.RESIZABLE)
+        self._resize_images()
+
+    def _find_correct_card_size(self) -> (int, int):
+        '''
+        Returns a tuple for the correct card size, so that
+        all the cards fit in the window
+        '''
+        surface = pygame.display.get_surface()
+        width, height = surface.get_width(), surface.get_height()
+
+        if width <= height:
+            new_card_width = int(width / CARD_TO_WIDTH)
+            new_card_height = int(new_card_width * CARD_WIDTH_TO_CARD_HEIGHT)
+        else:
+            new_card_height = int(height / CARD_TO_HEIGHT)
+            new_card_width = int(new_card_height / CARD_WIDTH_TO_CARD_HEIGHT)
+        
+        card_size = (new_card_width, new_card_height)
+        return card_size
 
     def run(self) -> None:
         self._init_pygame()
         while self._running:
             self._handle_events()
             self._redraw()
+            self._clock.tick(10)
 
     def _handle_events(self) -> None:
         '''
@@ -88,7 +122,7 @@ class SolitaireGame:
 
         for pile in self._game_state.piles:
             for card in pile:
-                surface.blit(self._images[card.image_filename], (random.randint(0, 1000), random.randint(0, 800)))
+                surface.blit(self._card_images[card.image_filename], (random.randint(0, 1000), random.randint(0, 800)))
 
         pygame.display.flip()
 
